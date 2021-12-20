@@ -1,18 +1,14 @@
  /*
 	Grab bmp image from an sd card.
  	It reads column by column and send each to RA8875
-	It uses the SDfat library of Bill Greiman
-	Official:https://github.com/greiman/SdFat
-	Beta (with TeensyLC support): https://github.com/greiman/SdFat-beta
-	Be sure to open SDfat/SdFatConfig.h and set ENABLE_SPI_TRANSACTION 0 to ENABLE_SPI_TRANSACTION 1 !!!
+	It uses the SD library, which uses SDfat library of Bill Greiman
 	Look inside the folder RA8875/examples/SDfatTest
 	there's a folder, copy the content in a formatted FAT32 SD card
 
  */
 #include <SPI.h>
-#include <Wire.h>
 #include <RA8875.h>
-#include <SdFat.h>
+#include <SD.h>
 
 
 /*
@@ -24,34 +20,11 @@ You are using 4 wire SPI here, so:
  the rest of pin below:
  */
 
-#define SDCSPIN      10//for SD
-#define RA8875_CS 	 20 //any digital pin
-#define RA8875_RESET 255//any pin or nothing!
+#define SDCSPIN       10 //for SD
+#define RA8875_CS     20 //any digital pin
+#define RA8875_RESET 255 //any pin or nothing!
 
 RA8875 tft = RA8875(RA8875_CS, RA8875_RESET); //Teensy3/arduino's
-
-// SD_FAT_TYPE = 0 for SdFat/File as defined in SdFatConfig.h,
-// 1 for FAT16/FAT32, 2 for exFAT, 3 for FAT16/FAT32 and exFAT.
-#define SD_FAT_TYPE 3
-
-#if SD_FAT_TYPE == 0
-SdFat sd;
-typedef File file_t;
-#elif SD_FAT_TYPE == 1
-SdFat32 sd;
-typedef File32 file_t;
-#elif SD_FAT_TYPE == 2
-SdExFat sd;
-typedef ExFile file_t;
-#elif SD_FAT_TYPE == 3
-SdFs sd;
-typedef FsFile file_t;
-#else  // SD_FAT_TYPE
-#error Invalid SD_FAT_TYPE
-#endif  // SD_FAT_TYPE
-
-
-file_t     bmpFile;
 
 
 void setup()
@@ -63,7 +36,7 @@ void setup()
 
   //  begin display: Choose from: RA8875_480x272, RA8875_800x480, RA8875_800x480ALT, Adafruit_480x272, Adafruit_800x480
   tft.begin(RA8875_800x480);
-  if (!sd.begin(SDCSPIN, SPI_FULL_SPEED)) {
+  if (!SD.begin(SDCSPIN)) {
     Serial.println("SD failed!");
     return;
   }
@@ -80,14 +53,14 @@ void loop()
 
 void bmpDraw(const char *filename, uint16_t x, uint16_t y) {
 
-  
+  File     bmpFile;
   uint16_t bmpWidth, bmpHeight;   // W+H in pixels
   uint8_t  bmpDepth;              // Bit depth (currently must be 24)
   uint32_t bmpImageoffset;        // Start of image data in file
   uint32_t rowSize;               // Not always = bmpWidth; may have padding
   boolean  goodBmp = false;       // Set to true on valid header parse
   boolean  flip    = true;        // BMP is stored bottom-to-top
-  int16_t      w, h, row, col;
+  int16_t  w, h, row, col;
   uint32_t pos = 0, startTime = millis();
   if ((x >= tft.width()) || (y >= tft.height())) return;
 
@@ -97,7 +70,7 @@ void bmpDraw(const char *filename, uint16_t x, uint16_t y) {
   Serial.println('\'');
 
   // Open requested file on SD card
-  if ((bmpFile = sd.open(filename)) == 0) {
+  if ((bmpFile = SD.open(filename)) == 0) {
     Serial.print("File not found");
     return;
   }
@@ -174,14 +147,14 @@ void bmpDraw(const char *filename, uint16_t x, uint16_t y) {
 // May need to reverse subscript order if porting elsewhere.
 
 
-uint16_t read16(file_t &f) {
+uint16_t read16(File &f) {
   uint16_t result = 0;
   ((uint8_t *)&result)[0] = f.read(); // LSB
   ((uint8_t *)&result)[1] = f.read(); // MSB
   return result;
 }
 
-uint32_t read32(file_t &f) {
+uint32_t read32(File &f) {
   uint32_t result = 0;
   ((uint8_t *)&result)[0] = f.read(); // LSB
   ((uint8_t *)&result)[1] = f.read();
